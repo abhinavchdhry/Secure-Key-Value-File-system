@@ -74,6 +74,16 @@ int firstInvalidEntry()
 	return (-1);	// Map full
 }
 
+struct metadata {
+	int 				filetype;		// Type of file
+	int 				protection;		// Protection/access information
+	long unsigned int 	size;			// Size
+	uint 				lastAccessTime;	// Last access time
+	uint 				lastModTime;	// Last modification time
+	int 				ownerId;		// ID of owner
+	char 				*contentFile;	// Filename of the contents file
+};
+
 ///////////////////////////////////////////////////////////
 //
 // Prototypes for all these functions, and the C-style comments,
@@ -196,6 +206,63 @@ int kvfs_utime_impl(const char *path, struct utimbuf *ubuf)
  */
 int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 {
+	int i;
+
+	if ((i = searchKey(path)) == -1)	// File does not exist. Create new entry in inodemap
+	{
+		i = firstInvalidEntry();
+		
+		if (i == -1)
+		{
+			printf("ERROR: inodemap is full! Failed to create entry for key: %s\n", path);
+			return -1;
+		}
+
+		char inodefilename[54];
+		strcpy(inodefilename, path);
+		strcat(inodefilename, ".inodefilename");
+
+		int fd = open(inodefilename, O_RDWR);
+
+		if (fd == -1)
+		{
+			printf("ERROR: Failed to create physical inode file on disk, key: %s!\n", path);
+			return -1;
+		}
+
+		// Now create the actual content file
+		int fdc = open(path, O_RDWR);
+		
+		if (fdc == -1)
+		{
+			unlink(inodefilename);	// Remove the inodefile
+			printf("ERROR: Failed to create physical content file on disk, key:%s\n", path);
+			return -1;
+		}
+		
+		close(fdc);
+
+		// Write metadata to inodefile
+
+		// Insert entry to inode map
+		inodemap[i].key = path;
+		inodemap[i].inodefile = malloc(sizeof(inodefilename) + 1);
+
+		if (inodemap[i].inodefile == NULL)
+		{
+			// We should probably clear up resources and open files here, but I'm too lazy
+			printf("%s: Malloc failure!\n", __FUNCTION__);
+			return -1;
+		}
+
+		strcpy(inodemap[i].inodefile, inodefilename);
+		return 1;
+	}
+	else	// File exists. Do nothing
+	{
+		return 1;
+	}
+
     return -1;
 }
 
@@ -276,6 +343,30 @@ int kvfs_read_impl(const char *path, char *buf, size_t size, off_t offset, struc
 int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset,
 	     struct fuse_file_info *fi)
 {
+	int i;
+
+	if ((i = searchKey(path)) == -1 )
+	{
+		printf("ERROR: Failed to write to file with key: %s: Does not exist!\n", path);
+		return -1;
+	}
+	else
+	{
+		char *inodefilename = inodemap[i].inodefile;
+
+		int fd = open(inodefilename, O_RDONLY);
+
+		if (fd < 0)
+		{
+			printf("Oops this looks bad: No inodefile for key: %s\n", path);
+			return -1;
+		}
+
+		// Read in metadata from inodefile
+		char contentfilename[100];
+		fscanf("")
+	}
+
     return -1;
 }
 
