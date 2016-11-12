@@ -75,14 +75,35 @@ int firstInvalidEntry()
 }
 
 struct metadata {
-	int 				filetype;		// Type of file
-	int 				protection;		// Protection/access information
-	long unsigned int 	size;			// Size
-	uint 				lastAccessTime;	// Last access time
-	uint 				lastModTime;	// Last modification time
-	int 				ownerId;		// ID of owner
-	char 				*contentFile;	// Filename of the contents file
+	int 				filetype;			// Type of file
+	int 				protection;			// Protection/access information
+	long unsigned int 	size;				// Size
+	uint 				lastAccessTime;		// Last access time
+	uint 				lastModTime;		// Last modification time
+	int 				ownerId;			// ID of owner
+	char 				contentFile[100];	// Filename of the contents file
 };
+
+// Metadata read/write helper functions
+int readMetadata(int fd, struct metadata* st)
+{
+	if (fd < 0 || st == NULL)
+		return -1;
+
+	fscanf(fd, "%d %d %lu %u %u %d %s",
+		st->filetype, st->protection, st->size, st->lastAccessTime, st->lastModTime, st->ownerId, st->contentFile);
+	return 0;
+}
+
+int writeMetadata(int fd, struct metadata* st)
+{
+	if (fd < 0 || st == NULL)
+		return -1;
+
+	fprintf(fd, "%d %d %lu %u %u %d %s\n",
+			st->filetype, st->protection, st->size, st->lastAccessTime, st->lastModTime, st->ownerId, st->contentFile);
+	return 0;
+}
 
 ///////////////////////////////////////////////////////////
 //
@@ -363,8 +384,40 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
 		}
 
 		// Read in metadata from inodefile
-		char contentfilename[100];
-		fscanf("")
+		struct metadata st;
+		if (readMetadata(fd, &st) < 0)
+		{
+			printf("ERROR: Failed to read metadata!\n");
+			return -1;
+		}
+
+		// Check permissions and stuff here...
+
+		// Access content file and perform write
+		int wfd = open(st->contentFile, O_APPEND);	// Use O_APPEND to preserve atomicity of seek and write
+
+		if (wfd < 0)
+		{
+		}
+
+		lseek(wfd, offset, SEEK_CUR);
+
+		if (write(wfd, (void*)buf, size) < 0)
+			printf("Error in write!\n");
+
+		close(wfd);
+
+		struct stat info;
+		fstat(wfd, &info);
+
+		// Update filesize and other metadata here...
+		st->size = info.st_size;
+		(void) st->lastAccessTime;
+		(void) st->lastModTime;
+
+		writeMetadata(fd, &st);
+
+		
 	}
 
     return -1;
