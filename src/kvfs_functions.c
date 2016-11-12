@@ -18,6 +18,7 @@
 */
 
 #include "kvfs.h"
+#include <sys/stat.h>
 
 struct entry {
 	char *key;
@@ -199,7 +200,25 @@ int kvfs_read_impl(const char *path, char *buf, size_t size, off_t offset, struc
 
 	if ((i = searchKey(path)) != -1)
 	{
+		int fd = open(inodemap[i].inodefile, O_RDONLY);
+		if (fd == -1)
+		{
+			printf("ERROR: inodefile for key: %s does not exist\n", path);
+			return -1;
+		}
+
+		// Read metadata from inodefile
+		int filetype, protection;
+		char owner[100];
+		char contentfilename[100];
+
+		fscanf(fd, "%d %d %s %s", &filetype, &protection, &owner, &contentfilename);
 		
+		// Check access permissions here.
+
+		// Now read the contents to buffer, after moving by offset
+		lseek(fd, offset, SEEK_CUR);
+		return read(fd, buf, size);
 	}
 	else	// File not present
 	{
@@ -213,6 +232,11 @@ int kvfs_read_impl(const char *path, char *buf, size_t size, off_t offset, struc
 			printf("Failed to create .inodefile!\n");
 			return -1;
 		}
+
+		// Write inode contents
+		
+		printf("read(): File for key: %s not present\n", path);
+		return -1;
 	}
 
     return -1;
