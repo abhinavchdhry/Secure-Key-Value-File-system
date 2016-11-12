@@ -15,10 +15,31 @@
   software; hopefully, the comments in this code will help people who
   follow later to get a gentler introduction.
 
+	Authors: Abhinav Choudhury (200159347), Aditya Virmani	
+
 */
 
 #include "kvfs.h"
 #include <sys/stat.h>
+
+/* 
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				FILE SYSTEM ARCHITECTURE
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Our experimental file system is built on top of the existing Linux filesystem and uses *linux files as metadata objects*
+There is no concept of a directory and hence related functions are just dummy functions.
+
+The medatadata for every physical file in our *virtual* (and extremely low-performace) file system is kept in an *inodefile*,
+which is just a physical linux file on disk with the .inodefile file extension. This contains all the metadata for the actual file
+as raw text in the following order:
+<filetype=0,1> | <protection information> | <size of file> | <last access time> | <last mod. time> | <owner ID> | <physical location filename>
+
+The <physical location filename> is the name of another physical linux file that contains the actual data for our file.
+
+Our filesystem keeps an in-memory map of keys to *inodefile* filename mapping. This is done to improve perfomace a little by reducing file access overhead on lookups.
+
+*/
 
 struct entry {
 	char *key;
