@@ -154,7 +154,23 @@ int writeMetadata(int fd, struct metadata* st)
 int kvfs_getattr_impl(const char *path, struct stat *statbuf)
 {
 log_msg("\n%s: path = %s\n", __FUNCTION__, path);
-    return -1;
+//    return -1;
+//	(void) fi;
+
+	int res;
+
+
+
+	res = lstat(path, statbuf);
+
+	if (res == -1)
+	{
+		log_msg("lstat returned error!\n");
+		return -errno;
+	}
+
+
+	return 0;
 }
 
 /** Read the target of a symbolic link
@@ -191,7 +207,20 @@ log_msg("\n%s\n", __FUNCTION__);
 int kvfs_mkdir_impl(const char *path, mode_t mode)
 {
 log_msg("\n%s\n", __FUNCTION__);
-    return -1;
+//    return -1;
+	int res;
+
+
+
+	res = mkdir(path, mode);
+
+	if (res == -1)
+
+		return -errno;
+
+
+
+	return 0;
 }
 
 /** Remove a file */
@@ -287,8 +316,9 @@ log_msg("\n%s\n", __FUNCTION__);
 			return -1;
 		}
 
-		char inodefilename[54];
-		strcpy(inodefilename, path);
+		char inodefilename[100];
+		strcpy(inodefilename, "/home/achoudh3/");
+		strcat(inodefilename, path);
 		strcat(inodefilename, ".inodefilename");
 
 		// TODO: Need to check if mode permissions are right here
@@ -482,7 +512,21 @@ log_msg("\n%s\n", __FUNCTION__);
 int kvfs_statfs_impl(const char *path, struct statvfs *statv)
 {
 log_msg("\n%s\n", __FUNCTION__);
-    return -1;
+int res;
+
+
+
+	res = statvfs(path, statv);
+
+	if (res == -1)
+	{
+		log_msg("statvfs returned error!\n");
+		return -errno;
+	}
+
+
+	return 0;
+ //   return -1;
 }
 
 /** Possibly flush cached data
@@ -592,7 +636,9 @@ log_msg("\n%s\n", __FUNCTION__);
 int kvfs_opendir_impl(const char *path, struct fuse_file_info *fi)
 {
 log_msg("\n%s\n", __FUNCTION__);
-    return -1;
+	if (opendir(path) == NULL)
+		log_msg("%s: returned NULL\n", __FUNCTION__);
+    return 0;
 }
 
 /** Read directory

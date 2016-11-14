@@ -122,6 +122,7 @@ int kvfs_mknod(const char *path, mode_t mode, dev_t dev)
 /** Create a directory */
 int kvfs_mkdir(const char *path, mode_t mode)
 {
+	log_msg("%s: path = %s\n", __FUNCTION__, path);
     return kvfs_mkdir_impl(str2md5(path, strlen(path)), mode);
 }
 
@@ -490,6 +491,7 @@ int kvfs_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info 
 
 struct fuse_operations kvfs_oper = {
   .getattr = kvfs_getattr,
+#ifdef ABHINAV
   .readlink = kvfs_readlink,
   // no .getdir -- that's deprecated
   .getdir = NULL,
@@ -508,27 +510,32 @@ struct fuse_operations kvfs_oper = {
   .read = kvfs_read,
   .write = kvfs_write,
   /** Just a placeholder, don't set */ // huh???
+#endif
   .statfs = kvfs_statfs,
+#ifdef ABHINAV
   .flush = kvfs_flush,
   .release = kvfs_release,
   .fsync = kvfs_fsync,
-  
+#endif  
 #ifdef HAVE_SYS_XATTR_H
   .setxattr = kvfs_setxattr,
   .getxattr = kvfs_getxattr,
   .listxattr = kvfs_listxattr,
   .removexattr = kvfs_removexattr,
 #endif
-  
+  #ifdef ABHINAV
   .opendir = kvfs_opendir,
   .readdir = kvfs_readdir,
   .releasedir = kvfs_releasedir,
   .fsyncdir = kvfs_fsyncdir,
+#endif
   .init = kvfs_init,
   .destroy = kvfs_destroy,
+#ifdef ABHINAV
   .access = kvfs_access,
   .ftruncate = kvfs_ftruncate,
   .fgetattr = kvfs_fgetattr
+#endif
 };
 
 void kvfs_usage()
