@@ -149,6 +149,7 @@ int writeMetadata(int fd, struct metadata* st)
  */
 int kvfs_getattr_impl(const char *path, struct stat *statbuf)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -166,6 +167,7 @@ int kvfs_getattr_impl(const char *path, struct stat *statbuf)
 // kvfs_readlink() code by Bernardo F Costa (thanks!)
 int kvfs_readlink_impl(const char *path, char *link, size_t size)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -177,24 +179,28 @@ int kvfs_readlink_impl(const char *path, char *link, size_t size)
 // shouldn't that comment be "if" there is no.... ?
 int kvfs_mknod_impl(const char *path, mode_t mode, dev_t dev)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Create a directory */
 int kvfs_mkdir_impl(const char *path, mode_t mode)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Remove a file */
 int kvfs_unlink_impl(const char *path)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Remove a directory */
 int kvfs_rmdir_impl(const char *path)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -205,6 +211,7 @@ int kvfs_rmdir_impl(const char *path)
 // unaltered, but insert the link into the mounted directory.
 int kvfs_symlink_impl(const char *path, const char *link)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -212,30 +219,35 @@ int kvfs_symlink_impl(const char *path, const char *link)
 // both path and newpath are fs-relative
 int kvfs_rename_impl(const char *path, const char *newpath)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Create a hard link to a file */
 int kvfs_link_impl(const char *path, const char *newpath)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Change the permission bits of a file */
 int kvfs_chmod_impl(const char *path, mode_t mode)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Change the owner and group of a file */
 int kvfs_chown_impl(const char *path, uid_t uid, gid_t gid)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Change the size of a file */
 int kvfs_truncate_impl(const char *path, off_t newsize)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -243,6 +255,7 @@ int kvfs_truncate_impl(const char *path, off_t newsize)
 /* note -- I'll want to change this as soon as 2.6 is in debian testing */
 int kvfs_utime_impl(const char *path, struct utimbuf *ubuf)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -259,7 +272,7 @@ int kvfs_utime_impl(const char *path, struct utimbuf *ubuf)
 int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 {
 	int i;
-
+log_msg("\n%s\n", __FUNCTION__);
 	if ((i = searchKey(path)) == -1)	// File does not exist. Create new entry in inodemap
 	{
 		i = firstInvalidEntry();
@@ -337,7 +350,7 @@ int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 int kvfs_read_impl(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
 	int i;
-
+log_msg("\n%s\n", __FUNCTION__);
 	if ((i = searchKey(path)) != -1)
 	{
 		int fd = open(inodemap[i].inodefile, O_RDONLY);
@@ -396,7 +409,7 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
 	     struct fuse_file_info *fi)
 {
 	int i;
-
+log_msg("\n%s\n", __FUNCTION__);
 	if ((i = searchKey(path)) == -1 )
 	{
 		printf("ERROR: Failed to write to file with key: %s: Does not exist!\n", path);
@@ -463,6 +476,7 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
  */
 int kvfs_statfs_impl(const char *path, struct statvfs *statv)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -492,6 +506,7 @@ int kvfs_statfs_impl(const char *path, struct statvfs *statv)
 // this is a no-op in BBFS.  It just logs the call and returns success
 int kvfs_flush_impl(const char *path, struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     log_msg("\nkvfs_flush(path=\"%s\", fi=0x%08x)\n", path, fi);
     // no need to get fpath on this one, since I work from fi->fh not the path
     log_fi(fi);
@@ -515,6 +530,7 @@ int kvfs_flush_impl(const char *path, struct fuse_file_info *fi)
  */
 int kvfs_release_impl(const char *path, struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -527,6 +543,7 @@ int kvfs_release_impl(const char *path, struct fuse_file_info *fi)
  */
 int kvfs_fsync_impl(const char *path, int datasync, struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -534,24 +551,28 @@ int kvfs_fsync_impl(const char *path, int datasync, struct fuse_file_info *fi)
 /** Set extended attributes */
 int kvfs_setxattr_impl(const char *path, const char *name, const char *value, size_t size, int flags)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Get extended attributes */
 int kvfs_getxattr_impl(const char *path, const char *name, char *value, size_t size)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** List extended attributes */
 int kvfs_listxattr_impl(const char *path, char *list, size_t size)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 /** Remove extended attributes */
 int kvfs_removexattr_impl(const char *path, const char *name)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 #endif
@@ -565,6 +586,7 @@ int kvfs_removexattr_impl(const char *path, const char *name)
  */
 int kvfs_opendir_impl(const char *path, struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -593,6 +615,7 @@ int kvfs_opendir_impl(const char *path, struct fuse_file_info *fi)
 int kvfs_readdir_impl(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
 	       struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -602,6 +625,7 @@ int kvfs_readdir_impl(const char *path, void *buf, fuse_fill_dir_t filler, off_t
  */
 int kvfs_releasedir_impl(const char *path, struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -616,11 +640,13 @@ int kvfs_releasedir_impl(const char *path, struct fuse_file_info *fi)
 // happens to be a directory? ??? >>> I need to implement this...
 int kvfs_fsyncdir_impl(const char *path, int datasync, struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
 int kvfs_access_impl(const char *path, int mask)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -653,6 +679,7 @@ int kvfs_access_impl(const char *path, int mask)
  */
 int kvfs_ftruncate_impl(const char *path, off_t offset, struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
@@ -670,6 +697,7 @@ int kvfs_ftruncate_impl(const char *path, off_t offset, struct fuse_file_info *f
  */
 int kvfs_fgetattr_impl(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
+log_msg("\n%s\n", __FUNCTION__);
     return -1;
 }
 
