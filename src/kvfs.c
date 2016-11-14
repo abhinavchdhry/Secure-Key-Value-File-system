@@ -87,7 +87,7 @@ char *str2md5(const char *str, int length) {
  */
 int kvfs_getattr(const char *path, struct stat *statbuf)
 {
-//    log_msg("    kvfs_fullpath:  path = \"%s\"\n",path);
+    log_msg("%s:    kvfs_fullpath:  path = \"%s\"\n",__FUNCTION__, path);
     return kvfs_getattr_impl(str2md5(path, strlen(path)), statbuf);
 }
 

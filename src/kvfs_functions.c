@@ -54,12 +54,22 @@ struct entry inodemap[MAXFILECOUNT];
 int searchKey(char *key)
 {
 	int i;
+log_msg("Inside searchKey key = %s\n", key);
 	for (i = 0; i < MAXFILECOUNT; i++)
 	{
-		if (strcmp(inodemap[i].key, key) == 0)
+		log_msg("i = %d\n", i);
+		if (inodemap[i].key != NULL && strcmp(inodemap[i].key, key) == 0)
+		{
+			log_msg("Found key = %s, returning\n", key);
 			return i;
+		}
+		else
+		{
+			log_msg("Not key i = %d\n", i);
+		}
 	}
 
+	log_msg("Not found!\n");
 	return (-1);
 }
 
@@ -89,7 +99,7 @@ struct metadata {
 #define CHECK(x)	do { \
 		if (x < 0)	\
 		{		\
-			printf("Metadata read/write error!\n");	\
+			log_msg("Metadata read/write error!\n");	\
 		}	\
 	}	\
 	while (0);	\
@@ -99,9 +109,6 @@ int readMetadata(int fd, struct metadata* st)
 {
 	if (fd < 0 || st == NULL)
 		return -1;
-
-//	fscanf(fd, "%d %d %lu %u %u %d %s",
-//		st->filetype, st->protection, st->size, st->lastAccessTime, st->lastModTime, st->ownerId, st->contentFile);
 
 	CHECK(read(fd, &(st->filetype), sizeof(st->filetype)));
 	CHECK(read(fd, &(st->protection), sizeof(st->protection)));
@@ -120,9 +127,6 @@ int writeMetadata(int fd, struct metadata* st)
 {
 	if (fd < 0 || st == NULL)
 		return -1;
-
-//	fprintf(fd, "%d %d %lu %u %u %d %s\n",
-//			st->filetype, st->protection, st->size, st->lastAccessTime, st->lastModTime, st->ownerId, st->contentFile);
 
 	CHECK(write(fd, &(st->filetype), sizeof(st->filetype)));
 	CHECK(write(fd, &(st->protection), sizeof(st->protection)));
@@ -149,7 +153,7 @@ int writeMetadata(int fd, struct metadata* st)
  */
 int kvfs_getattr_impl(const char *path, struct stat *statbuf)
 {
-log_msg("\n%s\n", __FUNCTION__);
+log_msg("\n%s: path = %s\n", __FUNCTION__, path);
     return -1;
 }
 
@@ -279,7 +283,7 @@ log_msg("\n%s\n", __FUNCTION__);
 		
 		if (i == -1)
 		{
-			printf("ERROR: inodemap is full! Failed to create entry for key: %s\n", path);
+			log_msg("ERROR: inodemap is full! Failed to create entry for key: %s\n", path);
 			return -1;
 		}
 
@@ -287,21 +291,22 @@ log_msg("\n%s\n", __FUNCTION__);
 		strcpy(inodefilename, path);
 		strcat(inodefilename, ".inodefilename");
 
-		int fd = open(inodefilename, O_RDWR);
+		// TODO: Need to check if mode permissions are right here
+		int fd = open(inodefilename, O_RDWR | O_CREAT, S_IRWXU);
 
 		if (fd == -1)
 		{
-			printf("ERROR: Failed to create physical inode file on disk, key: %s!\n", path);
+			log_msg("ERROR: Failed to create physical inode file on disk, key: %s!\n", path);
 			return -1;
 		}
 
 		// Now create the actual content file
-		int fdc = open(path, O_RDWR);
+		int fdc = open(path, O_RDWR | O_CREAT, S_IRWXU);
 		
 		if (fdc == -1)
 		{
 			unlink(inodefilename);	// Remove the inodefile
-			printf("ERROR: Failed to create physical content file on disk, key:%s\n", path);
+			log_msg("ERROR: Failed to create physical content file on disk, key:%s\n", path);
 			return -1;
 		}
 		
@@ -316,7 +321,7 @@ log_msg("\n%s\n", __FUNCTION__);
 		if (inodemap[i].inodefile == NULL)
 		{
 			// We should probably clear up resources and open files here, but I'm too lazy
-			printf("%s: Malloc failure!\n", __FUNCTION__);
+			log_msg("%s: Malloc failure!\n", __FUNCTION__);
 			return -1;
 		}
 
@@ -356,7 +361,7 @@ log_msg("\n%s\n", __FUNCTION__);
 		int fd = open(inodemap[i].inodefile, O_RDONLY);
 		if (fd == -1)
 		{
-			printf("ERROR: inodefile for key: %s does not exist\n", path);
+			log_msg("ERROR: inodefile for key: %s does not exist\n", path);
 			return -1;
 		}
 
@@ -382,13 +387,13 @@ log_msg("\n%s\n", __FUNCTION__);
 
 		if (fd == -1)
 		{
-			printf("Failed to create .inodefile!\n");
+			log_msg("Failed to create .inodefile!\n");
 			return -1;
 		}
 
 		// Write inode contents
 		
-		printf("read(): File for key: %s not present\n", path);
+		log_msg("read(): File for key: %s not present\n", path);
 		return -1;
 	}
 
@@ -412,7 +417,7 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
 log_msg("\n%s\n", __FUNCTION__);
 	if ((i = searchKey(path)) == -1 )
 	{
-		printf("ERROR: Failed to write to file with key: %s: Does not exist!\n", path);
+		log_msg("ERROR: Failed to write to file with key: %s: Does not exist!\n", path);
 		return -1;
 	}
 	else
@@ -423,7 +428,7 @@ log_msg("\n%s\n", __FUNCTION__);
 
 		if (fd < 0)
 		{
-			printf("Oops this looks bad: No inodefile for key: %s\n", path);
+			log_msg("Oops this looks bad: No inodefile for key: %s\n", path);
 			return -1;
 		}
 
@@ -431,7 +436,7 @@ log_msg("\n%s\n", __FUNCTION__);
 		struct metadata st;
 		if (readMetadata(fd, &st) < 0)
 		{
-			printf("ERROR: Failed to read metadata!\n");
+			log_msg("ERROR: Failed to read metadata!\n");
 			return -1;
 		}
 
@@ -447,7 +452,7 @@ log_msg("\n%s\n", __FUNCTION__);
 		lseek(wfd, offset, SEEK_CUR);
 
 		if (write(wfd, (void*)buf, size) < 0)
-			printf("Error in write!\n");
+			log_msg("Error in write!\n");
 
 		close(wfd);
 
@@ -646,8 +651,16 @@ log_msg("\n%s\n", __FUNCTION__);
 
 int kvfs_access_impl(const char *path, int mask)
 {
-log_msg("\n%s\n", __FUNCTION__);
-    return -1;
+log_msg("\n%s: path = %s\n", __FUNCTION__, path);
+	int i;
+	if ((i = searchKey(path)) < 0)	// Entry does not exist. Create an entry by calling kvfs_open_impl
+	{
+		kvfs_open_impl(path, NULL);
+	}
+
+	// TODO: Need to do permission checks here
+
+    return 0;
 }
 
 /**
@@ -697,7 +710,7 @@ log_msg("\n%s\n", __FUNCTION__);
  */
 int kvfs_fgetattr_impl(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-log_msg("\n%s\n", __FUNCTION__);
+log_msg("\n%s: path = %s\n", __FUNCTION__, path);
     return -1;
 }
 
