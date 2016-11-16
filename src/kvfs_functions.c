@@ -47,7 +47,7 @@ struct entry {
 	char *inodefile;
 };
 
-#define MAXFILECOUNT	(65536)
+#define MAXFILECOUNT	(256)
 
 struct entry inodemap[MAXFILECOUNT];
 
@@ -57,15 +57,15 @@ int searchKey(char *key)
 log_msg("Inside searchKey key = %s\n", key);
 	for (i = 0; i < MAXFILECOUNT; i++)
 	{
-		log_msg("i = %d\n", i);
+//		log_msg("i = %d\n", i);
 		if (inodemap[i].key != NULL && strcmp(inodemap[i].key, key) == 0)
 		{
-			log_msg("Found key = %s, returning\n", key);
+//			log_msg("Found key = %s, returning\n", key);
 			return i;
 		}
 		else
 		{
-			log_msg("Not key i = %d\n", i);
+//			log_msg("Not key i = %d\n", i);
 		}
 	}
 
@@ -169,6 +169,7 @@ log_msg("\n%s: path = %s\n", __FUNCTION__, path);
 
 	return 0;
 */
+
     statbuf->st_mode = S_IFDIR | 0755;
 		statbuf->st_nlink = 2;
     /*stbuf->st_dev     //ID of device containing file
@@ -321,10 +322,11 @@ int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 {
 	int i;
         log_msg("\n%s\n", __FUNCTION__);
-	if ((i = searchKey(path)) == -1)	// File does not exist. Create new entry in inodemap
+	i = searchKey(path);
+	if (i == -1)	// File does not exist. Create new entry in inodemap
 	{
 		i = firstInvalidEntry();
-		
+	log_msg("%s: First inval entry: %d\n", __FUNCTION__, i);
 		if (i == -1)
 		{
 			log_msg("ERROR: inodemap is full! Failed to create entry for key: %s\n", path);
@@ -332,18 +334,20 @@ int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 		}
 
 		char inodefilename[100];
-		//strcpy(inodefilename, "/home/achoudh3/");
+		strcpy(inodefilename, "/home/achoudh3/");
 		strcat(inodefilename, path);
 		strcat(inodefilename, ".inodefilename");
-
+log_msg("Before open\n");
 		// TODO: Need to check if mode permissions are right here
-		int fd = open(inodefilename, O_RDWR | O_CREAT, S_IRWXU);
-
+		int fd = open(inodefilename, O_WRONLY | O_CREAT, 0777);
+log_msg("After open, fd = %d\n", fd);
 		if (fd == -1)
 		{
-			log_msg("ERROR: Failed to create physical inode file on disk, key: %s!\n", path);
+			log_msg("%s: ERROR: Failed to create physical inode file on disk, key: %s!\n", __FUNCTION__, path);
 			return -1;
 		}
+		else
+			log_msg("%s: Inode file created for key = %s\n", __FUNCTION__, path);
 
 		// Now create the actual content file
 		int fdc = open(path, O_RDWR | O_CREAT, S_IRWXU);
@@ -351,7 +355,7 @@ int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 		if (fdc == -1)
 		{
 			unlink(inodefilename);	// Remove the inodefile
-			log_msg("ERROR: Failed to create physical content file on disk, key:%s\n", path);
+			log_msg("%s ERROR: Failed to create physical content file on disk, key:%s\n", __FUNCTION__, path);
 			return -1;
 		}
 		
@@ -684,7 +688,17 @@ int kvfs_readdir_impl(const char *path, void *buf, fuse_fill_dir_t filler, off_t
 	       struct fuse_file_info *fi)
 {
 log_msg("\n%s\n", __FUNCTION__);
-    return -1;
+	int i;
+	for (i = 0; i < MAXFILECOUNT; i++) {
+		if (inodemap[i].key && inodemap[i].inodefile)
+		{
+			struct stat st;
+			kvfs_getattr_impl(inodemap[i].key, &st);
+			filler(buf, inodemap[i].key, &st, 0);
+		}
+	}
+
+    return 0;
 }
 
 /** Release directory
