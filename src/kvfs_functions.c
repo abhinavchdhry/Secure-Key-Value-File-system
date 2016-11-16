@@ -157,9 +157,7 @@ log_msg("\n%s: path = %s\n", __FUNCTION__, path);
 //    return -1;
 //	(void) fi;
 
-	int res;
-
-
+	/*int res;
 
 	res = lstat(path, statbuf);
 
@@ -169,8 +167,25 @@ log_msg("\n%s: path = %s\n", __FUNCTION__, path);
 		return -errno;
 	}
 
-
 	return 0;
+*/
+    statbuf->st_mode = S_IFDIR | 0755;
+		statbuf->st_nlink = 2;
+    /*stbuf->st_dev     //ID of device containing file
+    stbuf->st_ino     //file serial number
+    stbuf->st_mode    //mode of file (see below)
+    stbuf->st_nlink   //number of links to the file
+    stbuf->st_uid     //user ID of file
+    stbuf->st_gid     //group ID of file
+    stbuf->st_rdev    //device ID (if file is character or block special)
+    stbuf->st_size    //file size in bytes (if file is a regular file)
+    stbuf->st_atime   //time of last access
+    stbuf->st_mtime   //time of last data modification
+    stbuf->st_ctime   //time of last status change
+    stbuf->st_blksize //a filesystem-specific preferred I/O block size for this object.  In some filesystem types, this mayvary from file to file
+    stbuf->st_blocks  //number of blocks allocated for this object
+    */
+    return 0;
 }
 
 /** Read the target of a symbolic link
@@ -305,7 +320,7 @@ log_msg("\n%s\n", __FUNCTION__);
 int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 {
 	int i;
-log_msg("\n%s\n", __FUNCTION__);
+        log_msg("\n%s\n", __FUNCTION__);
 	if ((i = searchKey(path)) == -1)	// File does not exist. Create new entry in inodemap
 	{
 		i = firstInvalidEntry();
@@ -317,7 +332,7 @@ log_msg("\n%s\n", __FUNCTION__);
 		}
 
 		char inodefilename[100];
-		strcpy(inodefilename, "/home/achoudh3/");
+		//strcpy(inodefilename, "/home/achoudh3/");
 		strcat(inodefilename, path);
 		strcat(inodefilename, ".inodefilename");
 
@@ -444,7 +459,7 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
 	     struct fuse_file_info *fi)
 {
 	int i;
-log_msg("\n%s\n", __FUNCTION__);
+        log_msg("\n%s\n", __FUNCTION__);
 	if ((i = searchKey(path)) == -1 )
 	{
 		log_msg("ERROR: Failed to write to file with key: %s: Does not exist!\n", path);
@@ -511,22 +526,24 @@ log_msg("\n%s\n", __FUNCTION__);
  */
 int kvfs_statfs_impl(const char *path, struct statvfs *statv)
 {
-log_msg("\n%s\n", __FUNCTION__);
-int res;
-
-
-
-	res = statvfs(path, statv);
-
-	if (res == -1)
-	{
-		log_msg("statvfs returned error!\n");
-		return -errno;
-	}
-
-
-	return 0;
- //   return -1;
+    log_msg("\n%s\n", __FUNCTION__);
+    struct statvfs tmp;
+    int res = statvfs("/etc/",&tmp);
+    *statv = tmp;
+    #ifdef kuch
+    statv->f_bsize = 100;    /* Filesystem block size */
+    statv->f_frsize = 100;   /* Fragment size */
+    statv->f_blocks =100;   /* Size of fs in f_frsize units */
+    statv->f_bfree = 100;    /* Number of free blocks */
+    statv->f_bavail = 100;   /* Number of free blocks for unprivileged users */
+    statv->f_files = 100;    /* Number of inodes */
+    statv->f_ffree = 100;    /* Number of free inodes */
+    statv->f_favail = 100;   /* Number of free inodes for unprivileged users */
+    statv->f_fsid = 100;     /* Filesystem ID */
+    statv->f_flag = 100;     /* Mount flags */
+    statv->f_namemax = 100;  /* Maximum filename length */
+    #endif
+    return 0;
 }
 
 /** Possibly flush cached data
@@ -756,7 +773,7 @@ log_msg("\n%s\n", __FUNCTION__);
  */
 int kvfs_fgetattr_impl(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-log_msg("\n%s: path = %s\n", __FUNCTION__, path);
+    log_msg("\n%s: path = %s\n", __FUNCTION__, path);
     return -1;
 }
 
