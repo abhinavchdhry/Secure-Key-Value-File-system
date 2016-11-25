@@ -198,7 +198,7 @@ int kvfs_utime(const char *path, struct utimbuf *ubuf)
  */
 int kvfs_open(const char *path, struct fuse_file_info *fi)
 {
-	log_msg("\n%s\n", __FUNCTION__);
+	log_msg("%s: path = %s\n", __FUNCTION__, path);
     return kvfs_open_impl(str2md5(path, strlen(path)), fi);
 }
 

@@ -22,7 +22,7 @@
 #include "kvfs.h"
 #include <sys/stat.h>
 #include <sys/time.h>
-
+#include <errno.h>
 /* 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
 				FILE SYSTEM ARCHITECTURE
@@ -41,6 +41,50 @@ The <physical location filename> is the name of another physical linux file that
 Our filesystem keeps an in-memory map of keys to *inodefile* filename mapping. This is done to improve perfomace a little by reducing file access overhead on lookups.
 
 */
+
+#if defined(__APPLE__)
+#  define COMMON_DIGEST_FOR_OPENSSL
+#  include <CommonCrypto/CommonDigest.h>
+#  define SHA1 CC_SHA1
+#else
+#  include <openssl/md5.h>
+#endif
+
+char *str2md5_local(const char *str, int length) {
+    int n;
+    MD5_CTX c;
+    unsigned char digest[16];
+    char *out = (char*)malloc(33);
+
+    MD5_Init(&c);
+
+    while (length > 0) {
+        if (length > 512) {
+            MD5_Update(&c, str, 512);
+        } else {
+            MD5_Update(&c, str, length);
+        }
+        length -= 512;
+        str += 512;
+    }
+
+    MD5_Final(digest, &c);
+
+    for (n = 0; n < 16; ++n) {
+        snprintf(&(out[n*2]), 16*2, "%02x", (unsigned int)digest[n]);
+    }
+
+    return out;
+}
+
+int tempDirInited = 0;
+void checkAndInitTempDir()
+{
+	if (!tempDirInited)
+	{
+		
+	}
+}
 
 struct entry {
 	char *key;
@@ -154,24 +198,62 @@ int writeMetadata(int fd, struct metadata* st)
 int kvfs_getattr_impl(const char *path, struct stat *statbuf)
 {
 log_msg("\n%s: path = %s\n", __FUNCTION__, path);
-//    return -1;
-//	(void) fi;
+	
+	char *rootkey = str2md5_local("/", strlen("/"));
 
-	/*int res;
+	char cwd[1024];
+	getcwd(cwd, sizeof(cwd));
+	log_msg("%s: CWD = %s\n", __FUNCTION__, cwd);
 
-	res = lstat(path, statbuf);
-
-	if (res == -1)
+	if (strcmp(path, rootkey) == 0)
 	{
-		log_msg("lstat returned error!\n");
-		return -errno;
+		int ret = open(path, O_RDONLY);
+		if (ret < 0) {
+			log_msg("Failed to find file. errno = %d. Trying to create now...\n", errno);
+			char fullpath[200];
+//			strcpy(fullpath, "/home/achoudh3/");
+			strcpy(fullpath, "/home/achoudh3/Ass/Secure-Key-Value-File-system/src/");
+			strcat(fullpath, path);
+			log_msg("%s: fullpath is : %s\n", __FUNCTION__, fullpath);
+			int ret1 = open(fullpath, O_RDWR | O_CREAT, 0777);
+			log_msg("DONE! ret1 = %d\n", ret1);
+			if (ret1 < 0)
+			{
+				log_msg("%s: Failed to create file for root node! errno = %d\n", __FUNCTION__, errno);
+			}
+			else {
+				log_msg("%s: Created file entry for root!\n");
+			}
+		}
 	}
 
-	return 0;
-*/
+//	if (strcmp(path, rootkey) == 0 && searchKey(path) < 0) {	// Entry for root "/" does not exist. Make it
+//		int i = firstInvalidEntry();
+//		inodemap[i].key = rootkey;
+//	}
 
-    statbuf->st_mode = S_IFDIR | 0755;
+//	if (searchKey(path) < 0) {	// If file does not yet exist in our database, oops!
+//		return (-1);
+//	}
+//	else {
+//		statbuf->st_mode = S_IFDIR | 0755;
+//		statbuf->st_nlink = 2;
+//	}
+
+	// Check if file exists first
+	int r = open(path, O_RDONLY);
+
+	if (r < 0)
+	{
+		return r;
+	}
+	else
+	{
+	       	statbuf->st_mode = S_IFDIR | 0755;
 		statbuf->st_nlink = 2;
+		close(r);
+	}
+
     /*stbuf->st_dev     //ID of device containing file
     stbuf->st_ino     //file serial number
     stbuf->st_mode    //mode of file (see below)
@@ -320,6 +402,24 @@ log_msg("\n%s\n", __FUNCTION__);
  */
 int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 {
+	if (fi)
+		log_msg("%s: fileinfo flags = %x\n", fi->flags);
+
+	int ret = open(path, O_RDWR | O_CREAT, 0666);
+	if (ret < 0) {
+		log_msg("%s: open failed! ret = %d, errno = %d\n", __FUNCTION__, ret, errno);
+		return ret;
+	}
+	else
+	{
+		log_msg("%s: open succeeded!\n", __FUNCTION__);
+	}
+
+	return 0;
+}
+
+#if 0
+{
 	int i;
         log_msg("\n%s\n", __FUNCTION__);
 	i = searchKey(path);
@@ -384,6 +484,7 @@ log_msg("After open, fd = %d\n", fd);
 
     return -1;
 }
+#endif
 
 /** Read data from an open file
  *
@@ -656,7 +757,7 @@ log_msg("\n%s\n", __FUNCTION__);
  */
 int kvfs_opendir_impl(const char *path, struct fuse_file_info *fi)
 {
-log_msg("\n%s\n", __FUNCTION__);
+log_msg("\n%s, path = %s\n", __FUNCTION__, path);
 	if (opendir(path) == NULL)
 		log_msg("%s: returned NULL\n", __FUNCTION__);
     return 0;
