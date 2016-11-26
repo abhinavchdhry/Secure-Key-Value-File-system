@@ -23,6 +23,8 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <wordexp.h>
+
 /* 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
 				FILE SYSTEM ARCHITECTURE
@@ -82,7 +84,48 @@ void checkAndInitTempDir()
 {
 	if (!tempDirInited)
 	{
-		
+	       wordexp_t p;
+	        wordexp("~", &p, 0);
+
+        	char fullPath[200];
+        	strcpy(fullPath, p.we_wordv[0]);
+		strcat(fullPath, "/.tmpfs");
+
+		if (mkdir(fullPath, 0700) < 0) 
+		{
+			if (errno == EEXIST)
+			{
+				// Recursively delete the folder first
+				DIR *theFolder = opendir(fullPath);
+			    struct dirent *next_file;
+			    char filepath[500];
+
+			    while ( (next_file = readdir(theFolder)) != NULL )
+			    {
+			        // build the path for each file in the folder
+    				   sprintf(filepath, "%s/%s", fullPath, next_file->d_name);
+			        int r = remove(filepath);
+				if (r < 0)
+					log_msg("REMOVE failed filepath = %s, errno = %d\n", filepath, errno);
+			    }
+			    closedir(theFolder);
+				if (rmdir(fullPath) < 0)
+				{
+					log_msg("RMdir failed! errno = %d\n", errno);
+				}
+				else if (mkdir(fullPath, 0700) < 0)
+				{
+					log_msg("MKDIR Failed again! errno = %d\n", errno);
+				}
+				tempDirInited = 1;
+			}
+			else
+			{
+				log_msg("Failed to create tmpfs directory! errno = %d\n", errno);
+			}
+		}
+		else
+			tempDirInited = 1;
 	}
 }
 
@@ -200,75 +243,45 @@ int kvfs_getattr_impl(const char *path, struct stat *statbuf)
 log_msg("\n%s: path = %s\n", __FUNCTION__, path);
 	
 	char *rootkey = str2md5_local("/", strlen("/"));
+	wordexp_t p;
+	wordexp("~", &p, 0);
+	
+	char fullPath[200];
+	strcpy(fullPath, p.we_wordv[0]);
+	strcat(fullPath, "/.tmpfs/");
+	strcat(fullPath, path);
 
-	char cwd[1024];
-	getcwd(cwd, sizeof(cwd));
-	log_msg("%s: CWD = %s\n", __FUNCTION__, cwd);
-
+	checkAndInitTempDir();
+	
 	if (strcmp(path, rootkey) == 0)
 	{
-		int ret = open(path, O_RDONLY);
-		if (ret < 0) {
-			log_msg("Failed to find file. errno = %d. Trying to create now...\n", errno);
-			char fullpath[200];
-//			strcpy(fullpath, "/home/achoudh3/");
-			strcpy(fullpath, "/home/achoudh3/Ass/Secure-Key-Value-File-system/src/");
-			strcat(fullpath, path);
-			log_msg("%s: fullpath is : %s\n", __FUNCTION__, fullpath);
-			int ret1 = open(fullpath, O_RDWR | O_CREAT, 0777);
-			log_msg("DONE! ret1 = %d\n", ret1);
+		int ret = open(fullPath, O_RDONLY);
+		if (ret < 0 && errno == ENOENT)
+		{
+			int ret1 = open(fullPath, O_RDWR | O_CREAT, 0700);
 			if (ret1 < 0)
 			{
-				log_msg("%s: Failed to create file for root node! errno = %d\n", __FUNCTION__, errno);
+				log_msg("%s: Falied to create file for root! errno = %d\n", __FUNCTION__, errno);
 			}
-			else {
-				log_msg("%s: Created file entry for root!\n");
+			else
+			{
+				close(ret1);
+				log_msg("%s: Created file entry for root node!\n", __FUNCTION__);
 			}
+		}
+		else
+		{
+			close(ret);
 		}
 	}
 
-//	if (strcmp(path, rootkey) == 0 && searchKey(path) < 0) {	// Entry for root "/" does not exist. Make it
-//		int i = firstInvalidEntry();
-//		inodemap[i].key = rootkey;
-//	}
+	int r = kvfs_open_impl(path, NULL);
 
-//	if (searchKey(path) < 0) {	// If file does not yet exist in our database, oops!
-//		return (-1);
-//	}
-//	else {
-//		statbuf->st_mode = S_IFDIR | 0755;
-//		statbuf->st_nlink = 2;
-//	}
+	r = stat(fullPath, statbuf);
+        if (strcmp(path, rootkey) == 0)
+             statbuf->st_mode = S_IFDIR | 0755;
 
-	// Check if file exists first
-	int r = open(path, O_RDONLY);
-
-	if (r < 0)
-	{
-		return r;
-	}
-	else
-	{
-	       	statbuf->st_mode = S_IFDIR | 0755;
-		statbuf->st_nlink = 2;
-		close(r);
-	}
-
-    /*stbuf->st_dev     //ID of device containing file
-    stbuf->st_ino     //file serial number
-    stbuf->st_mode    //mode of file (see below)
-    stbuf->st_nlink   //number of links to the file
-    stbuf->st_uid     //user ID of file
-    stbuf->st_gid     //group ID of file
-    stbuf->st_rdev    //device ID (if file is character or block special)
-    stbuf->st_size    //file size in bytes (if file is a regular file)
-    stbuf->st_atime   //time of last access
-    stbuf->st_mtime   //time of last data modification
-    stbuf->st_ctime   //time of last status change
-    stbuf->st_blksize //a filesystem-specific preferred I/O block size for this object.  In some filesystem types, this mayvary from file to file
-    stbuf->st_blocks  //number of blocks allocated for this object
-    */
-    return 0;
+	return r;
 }
 
 /** Read the target of a symbolic link
@@ -325,7 +338,15 @@ log_msg("\n%s\n", __FUNCTION__);
 int kvfs_unlink_impl(const char *path)
 {
 log_msg("\n%s\n", __FUNCTION__);
-    return -1;
+    wordexp_t p;
+    wordexp("~", &p, 0);
+
+    char fullPath[200];
+    strcpy(fullPath, p.we_wordv[0]);
+    strcat(fullPath, "/.tmpfs/");
+	strcat(fullPath, path);
+
+	return unlink(fullPath);
 }
 
 /** Remove a directory */
@@ -387,7 +408,15 @@ log_msg("\n%s\n", __FUNCTION__);
 int kvfs_utime_impl(const char *path, struct utimbuf *ubuf)
 {
 log_msg("\n%s\n", __FUNCTION__);
-    return -1;
+	wordexp_t p;
+        wordexp("~", &p, 0);
+
+        char fullPath[200];
+        strcpy(fullPath, p.we_wordv[0]);
+        strcat(fullPath, "/.tmpfs/");
+	strcat(fullPath, path);
+
+	return utime(fullPath, ubuf);
 }
 
 /** File open operation
@@ -402,89 +431,37 @@ log_msg("\n%s\n", __FUNCTION__);
  */
 int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 {
-	if (fi)
-		log_msg("%s: fileinfo flags = %x\n", fi->flags);
+       wordexp_t p;
+        wordexp("~", &p, 0);
 
-	int ret = open(path, O_RDWR | O_CREAT, 0666);
-	if (ret < 0) {
-		log_msg("%s: open failed! ret = %d, errno = %d\n", __FUNCTION__, ret, errno);
-		return ret;
-	}
-	else
+        char fullPath[200];
+        strcpy(fullPath, p.we_wordv[0]);
+	strcat(fullPath, "/.tmpfs/");
+	strcat(fullPath, path);
+log_msg("open_impl, fullpath - %s\n", fullPath);
+	
+	int ret = open(fullPath, O_RDONLY);
+	if (ret < 0 && errno == ENOENT)
 	{
-		log_msg("%s: open succeeded!\n", __FUNCTION__);
+		int ret1 = open(fullPath, O_RDWR | O_CREAT, 0700);
+		if (ret1 < 0)
+		{
+			log_msg("%s: Failed to create file, path = %s! errno = %d\n", __FUNCTION__, fullPath, errno);
+		}
+		else close(ret1);
+	}
+	else if (ret < 0)
+	{
+		log_msg("%s: open_impl failed for some reason!\n", __FUNCTION__);
+	}
+	else if (ret >= 0)
+	{
+		log_msg("%s: open_impl succeeds!\n", __FUNCTION__);
+		close(ret);
 	}
 
 	return 0;
 }
-
-#if 0
-{
-	int i;
-        log_msg("\n%s\n", __FUNCTION__);
-	i = searchKey(path);
-	if (i == -1)	// File does not exist. Create new entry in inodemap
-	{
-		i = firstInvalidEntry();
-	log_msg("%s: First inval entry: %d\n", __FUNCTION__, i);
-		if (i == -1)
-		{
-			log_msg("ERROR: inodemap is full! Failed to create entry for key: %s\n", path);
-			return -1;
-		}
-
-		char inodefilename[100];
-		strcpy(inodefilename, "/home/achoudh3/");
-		strcat(inodefilename, path);
-		strcat(inodefilename, ".inodefilename");
-log_msg("Before open\n");
-		// TODO: Need to check if mode permissions are right here
-		int fd = open(inodefilename, O_WRONLY | O_CREAT, 0777);
-log_msg("After open, fd = %d\n", fd);
-		if (fd == -1)
-		{
-			log_msg("%s: ERROR: Failed to create physical inode file on disk, key: %s!\n", __FUNCTION__, path);
-			return -1;
-		}
-		else
-			log_msg("%s: Inode file created for key = %s\n", __FUNCTION__, path);
-
-		// Now create the actual content file
-		int fdc = open(path, O_RDWR | O_CREAT, S_IRWXU);
-		
-		if (fdc == -1)
-		{
-			unlink(inodefilename);	// Remove the inodefile
-			log_msg("%s ERROR: Failed to create physical content file on disk, key:%s\n", __FUNCTION__, path);
-			return -1;
-		}
-		
-		close(fdc);
-
-		// Write metadata to inodefile
-
-		// Insert entry to inode map
-		inodemap[i].key = path;
-		inodemap[i].inodefile = malloc(sizeof(inodefilename) + 1);
-
-		if (inodemap[i].inodefile == NULL)
-		{
-			// We should probably clear up resources and open files here, but I'm too lazy
-			log_msg("%s: Malloc failure!\n", __FUNCTION__);
-			return -1;
-		}
-
-		strcpy(inodemap[i].inodefile, inodefilename);
-		return 1;
-	}
-	else	// File exists. Do nothing
-	{
-		return 1;
-	}
-
-    return -1;
-}
-#endif
 
 /** Read data from an open file
  *
@@ -504,50 +481,28 @@ log_msg("After open, fd = %d\n", fd);
 // returned by read.
 int kvfs_read_impl(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-	int i;
-log_msg("\n%s\n", __FUNCTION__);
-	if ((i = searchKey(path)) != -1)
+	       wordexp_t p;
+        wordexp("~", &p, 0);
+
+        char fullPath[200];
+        strcpy(fullPath, p.we_wordv[0]);
+	strcat(fullPath, "/.tmpfs/");
+        strcat(fullPath, path);
+log_msg("read_impl\n");
+        int ret = open(fullPath, O_RDONLY);
+	if (ret < 0)
 	{
-		int fd = open(inodemap[i].inodefile, O_RDONLY);
-		if (fd == -1)
-		{
-			log_msg("ERROR: inodefile for key: %s does not exist\n", path);
-			return -1;
-		}
-
-		// Read metadata from inodefile
-		int filetype, protection;
-		char owner[100];
-		char contentfilename[100];
-
-		fscanf(fd, "%d %d %s %s", &filetype, &protection, &owner, &contentfilename);
-		
-		// Check access permissions here.
-
-		// Now read the contents to buffer, after moving by offset
-		lseek(fd, offset, SEEK_CUR);
-		return read(fd, buf, size);
-	}
-	else	// File not present
-	{
-		// Create inodefile	
-		char inodefilename[54];
-		strcpy(inodefilename, path);
-		int fd = open(strcat(inodefilename, ".inodefile"), O_RDWR);
-
-		if (fd == -1)
-		{
-			log_msg("Failed to create .inodefile!\n");
-			return -1;
-		}
-
-		// Write inode contents
-		
-		log_msg("read(): File for key: %s not present\n", path);
+		errno = ENOENT;	// File not found
+		log_msg("Open failed! errno = %d\n", errno);
 		return -1;
 	}
+	
+	lseek(ret, offset, SEEK_CUR);
 
-    return -1;
+	int count = read(ret, buf, size);
+	close(ret);
+
+	return count;
 }
 
 /** Write data to an open file
@@ -563,63 +518,28 @@ log_msg("\n%s\n", __FUNCTION__);
 int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset,
 	     struct fuse_file_info *fi)
 {
-	int i;
-        log_msg("\n%s\n", __FUNCTION__);
-	if ((i = searchKey(path)) == -1 )
+        wordexp_t p;
+        wordexp("~", &p, 0);
+
+        char fullPath[200];
+        strcpy(fullPath, p.we_wordv[0]);
+	strcat(fullPath, "/.tmpfs/");
+        strcat(fullPath, path);
+
+        int ret = open(fullPath, O_RDWR);
+	if (ret < 0)
 	{
-		log_msg("ERROR: Failed to write to file with key: %s: Does not exist!\n", path);
+		errno = ENOENT;
+		log_msg("Open failed! errno = %d\n", errno);
 		return -1;
 	}
-	else
-	{
-		char *inodefilename = inodemap[i].inodefile;
+	
+	lseek(ret, offset, SEEK_CUR);
 
-		int fd = open(inodefilename, O_RDONLY);
+	int bytes = write(ret, buf, size);
+	close(ret);
 
-		if (fd < 0)
-		{
-			log_msg("Oops this looks bad: No inodefile for key: %s\n", path);
-			return -1;
-		}
-
-		// Read in metadata from inodefile
-		struct metadata st;
-		if (readMetadata(fd, &st) < 0)
-		{
-			log_msg("ERROR: Failed to read metadata!\n");
-			return -1;
-		}
-
-		// Check permissions and stuff here...
-
-		// Access content file and perform write
-		int wfd = open(st.contentFile, O_APPEND);	// Use O_APPEND to preserve atomicity of seek and write
-
-		if (wfd < 0)
-		{
-		}
-
-		lseek(wfd, offset, SEEK_CUR);
-
-		if (write(wfd, (void*)buf, size) < 0)
-			log_msg("Error in write!\n");
-
-		close(wfd);
-
-		struct stat info;
-		fstat(wfd, &info);
-
-		// Update filesize and other metadata here...
-		st.size = info.st_size;
-		(void) st.lastAccessTime;
-		(void) st.lastModTime;
-
-		writeMetadata(fd, &st);
-
-		
-	}
-
-    return -1;
+	return bytes;
 }
 
 /** Get file system statistics
@@ -757,9 +677,17 @@ log_msg("\n%s\n", __FUNCTION__);
  */
 int kvfs_opendir_impl(const char *path, struct fuse_file_info *fi)
 {
+       wordexp_t p;
+        wordexp("~", &p, 0);
+
+        char fullPath[200];
+        strcpy(fullPath, p.we_wordv[0]);
+        strcat(fullPath, "/.tmpfs/");
+        strcat(fullPath, path);
+
 log_msg("\n%s, path = %s\n", __FUNCTION__, path);
-	if (opendir(path) == NULL)
-		log_msg("%s: returned NULL\n", __FUNCTION__);
+	if (opendir(fullPath) == NULL)
+		log_msg("%s: returned NULL, errno = %d\n", __FUNCTION__, errno);
     return 0;
 }
 
@@ -799,6 +727,28 @@ log_msg("\n%s\n", __FUNCTION__);
 		}
 	}
 
+        wordexp_t p;
+        wordexp("~", &p, 0);
+
+        char fullPath[200];
+        strcpy(fullPath, p.we_wordv[0]);
+        strcat(fullPath, "/.tmpfs/");
+
+	DIR *theFolder = opendir(fullPath);
+	struct dirent *next_file;
+	char filepath[256];
+
+	while ( (next_file = readdir(theFolder)) != NULL )
+	{
+		// build the path for each file in the folder
+		struct stat st;
+		kvfs_getattr_impl(next_file->d_name, &st);
+//		sprintf(filepath, "%s/%s", "path/of/folder", next_file->d_name);
+//		remove(filepath);
+		filler(buf, next_file->d_name, &st, 0);
+	}
+	closedir(theFolder);
+
     return 0;
 }
 
@@ -831,10 +781,10 @@ int kvfs_access_impl(const char *path, int mask)
 {
 log_msg("\n%s: path = %s\n", __FUNCTION__, path);
 	int i;
-	if ((i = searchKey(path)) < 0)	// Entry does not exist. Create an entry by calling kvfs_open_impl
-	{
-		kvfs_open_impl(path, NULL);
-	}
+//	if ((i = searchKey(path)) < 0)	// Entry does not exist. Create an entry by calling kvfs_open_impl
+//	{
+//		kvfs_open_impl(path, NULL);
+//	}
 
 	// TODO: Need to do permission checks here
 
